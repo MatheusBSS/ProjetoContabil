@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Editar Cliente</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<h2>Editar Cliente</h2>
+
+<form method="POST">
+    <input type="text" name="nome" value="{{ cliente.nome }}"><br>
+    <input type="text" name="cpf" value="{{ cliente.cpf }}"><br>
+    <input type="text" name="contato" value="{{ cliente.contato }}"><br>
+    <button type="submit">Atualizar</button>
+</form>
+
+<a href="/clientes">Voltar</a>
+
+</body>
+</html>

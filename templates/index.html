@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Clientes</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<h2>Clientes</h2>
+
+<ul>
+{% for c in clientes %}
+    <li>
+        {{ c.nome }} -
+        {{ c.cpf[:3] }}.{{ c.cpf[3:6] }}.{{ c.cpf[6:9] }}-{{ c.cpf[9:] }} -
+        {{ c.contato }}
+        <br>
+        <a href="/editar/{{ loop.index0 }}">Editar</a>
+        <a href="/excluir/{{ loop.index0 }}">Excluir</a>
+    </li>
+{% endfor %}
+</ul>
+
+<a href="/dashboard">Voltar</a>
+
+</body>
+</html>
