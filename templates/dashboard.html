@@ -1,15 +1,26 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
-    <title>Dashboard</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard - Contabilidade Marinho</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <h1>Dashboard - Sistema de Contabilidade</h1>
+    <p><strong>Bem-vindo, Admin!</strong></p>
 
-<h2>Dashboard</h2>
+    <h2>Resumo Geral</h2>
+    <p><strong>Total de Clientes:</strong> {{ total_clientes }}</p>
+    <p><strong>Total de Prazos:</strong> {{ total_prazos }}</p>
+    <p><strong>Prazos próximos (7 dias):</strong> <span style="color:red; font-weight:bold;">{{ prazos_proximos }}</span></p>
 
-<a href="/cadastrar">Cadastrar Cliente</a><br>
-<a href="/clientes">Ver Clientes</a>
+    <h2>Ações Rápidas</h2>
+    <a href="/cadastrar" class="botao">Cadastrar Novo Cliente</a>
+    <a href="/clientes" class="botao">Ver Lista de Clientes</a>
+    <a href="/prazos" class="botao">Cadastrar / Ver Prazos</a>
 
+    <br><br>
+    <a href="/logout" style="color:red;">Sair do Sistema</a>
 </body>
 </html>

@@ -1,21 +1,35 @@
 <!DOCTYPE html>
-<html>
+<html lang="pt-br">
 <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Editar Cliente</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
+    <h1>Editar Cliente</h1>
+    <a href="/clientes">← Voltar para Lista de Clientes</a>
 
-<h2>Editar Cliente</h2>
+    <!-- Mensagens Flash -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
 
-<form method="POST">
-    <input type="text" name="nome" value="{{ cliente.nome }}"><br>
-    <input type="text" name="cpf" value="{{ cliente.cpf }}"><br>
-    <input type="text" name="contato" value="{{ cliente.contato }}"><br>
-    <button type="submit">Atualizar</button>
-</form>
+    <form method="POST">
+        <label>Nome completo:</label><br>
+        <input type="text" name="nome" value="{{ cliente['nome'] }}" required><br><br>
 
-<a href="/clientes">Voltar</a>
+        <label>CPF:</label><br>
+        <input type="text" name="cpf" value="{{ formatar_cpf(cliente['cpf']) }}" maxlength="14" required><br><br>
 
+        <label>Telefone / Contato:</label><br>
+        <input type="text" name="contato" value="{{ cliente['contato'] }}" required><br><br>
+
+        <button type="submit">Salvar Alterações</button>
+    </form>
 </body>
 </html>

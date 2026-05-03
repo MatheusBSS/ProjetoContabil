@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Editar Prazo</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>Editar Prazo</h1>
+    <a href="/prazos">← Voltar para Prazos</a>
+
+    <!-- Mensagens de feedback -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <form method="POST">
+        <label>Descrição:</label><br>
+        <input type="text" name="descricao" value="{{ prazo['descricao'] }}" required><br><br>
+
+        <label>Observação:</label><br>
+        <textarea name="observacao" rows="4">{{ prazo['observacao'] or '' }}</textarea><br><br>
+
+        <label>Data de Vencimento:</label><br>
+        <input type="date" name="data_vencimento"
+               value="{{ prazo['data_vencimento'] }}" required><br><br>
+
+        <button type="submit">Salvar Alterações</button>
+    </form>
+</body>
+</html>

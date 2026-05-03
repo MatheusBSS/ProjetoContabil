@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Prazos Contábeis</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <h1>📅 Controle de Prazos e Obrigações</h1>
+    <a href="/dashboard">← Voltar ao Dashboard</a>
+
+    <!-- Mensagens de Feedback -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+            {% for category, message in messages %}
+                <div class="flash {{ category }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+    {% endwith %}
+
+    <h2>➕ Cadastrar Novo Prazo</h2>
+    <form method="POST">
+        <label>Cliente:</label><br>
+        <select name="cliente_id" required>
+            {% for cliente in clientes %}
+                <option value="{{ cliente['cpf'] }}">{{ cliente['nome'] }}</option>
+            {% endfor %}
+        </select><br><br>
+
+        <label>Nome da obrigação:</label><br>
+        <input type="text" name="nome_obrigacao" required><br><br>
+
+        <label>Observação:</label><br>
+        <textarea name="observacao" rows="3"></textarea><br><br>
+
+        <label>Data de Vencimento:</label><br>
+        <input type="date" name="data_vencimento" required><br><br>
+
+        <button type="submit">Cadastrar Prazo</button>
+    </form>
+
+    <hr>
+
+    <h2>Lista de Prazos Cadastrados</h2>
+
+    <!-- Busca e Filtro -->
+    <form method="GET">
+        <input type="text" name="busca" placeholder="Buscar por cliente ou nome da obrigação"
+               value="{{ busca }}" style="width:60%; display:inline-block; padding:10px;">
+        <select name="filtro">
+            <option value="todos">Todos os prazos</option>
+            <option value="pendente" {% if filtro == 'pendente' %}selected{% endif %}>Pendentes</option>
+            <option value="concluido" {% if filtro == 'concluido' %}selected{% endif %}>Concluídos</option>
+        </select>
+        <button type="submit">Buscar</button>
+    </form>
+
+    <table border="1" width="100%">
+        <tr>
+            <th>Cliente</th>
+            <th>Nome da obrigação</th>
+            <th>Observação</th>
+            <th>Vencimento</th>
+            <th>Dias Restantes</th>
+            <th>Status</th>
+            <th>Ações</th>
+        </tr>
+        {% for prazo in prazos %}
+        <tr>
+            <td>{{ prazo['cliente_nome'] }}</td>
+            <td>{{ prazo['nome_obrigacao'] }}</td>
+            <td>{{ prazo['observacao'] or '-' }}</td>
+            <td>{{ prazo['data_vencimento'] }}</td>
+            <td>
+                {% set dias = (prazo['data_vencimento'] - hoje).days %}
+                <span style="{% if dias < 0 %}color:#b91c1c; font-weight:bold;{% elif dias <= 7 %}color:#dc2626; font-weight:bold;{% elif dias <= 15 %}color:#d97706;{% endif %}">
+                    {{ dias }} dias
+                </span>
+            </td>
+            <td>{{ prazo['status'] }}</td>
+            <td>
+                <a href="/editar_prazo/{{ prazo['id'] }}">Editar</a> |
+                {% if prazo['status'] != 'Concluído' %}
+                    <a href="/marcar_concluido/{{ prazo['id'] }}">Concluir</a> |
+                {% endif %}
+                <a href="/excluir_prazo/{{ prazo['id'] }}"
+                   onclick="return confirm('Tem certeza que deseja excluir este prazo?')">Excluir</a>
+            </td>
+        </tr>
+        {% endfor %}
+    </table>
+</body>
+</html>
