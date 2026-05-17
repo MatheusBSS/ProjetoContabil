@@ -1,11 +1,33 @@
 from flask import Flask, render_template, request, redirect, session, flash
+from flask_sqlalchemy import SQLAlchemy
 from datetime import date
+import os
 
 app = Flask(__name__)
-app.secret_key = 'contmarinho'
+app.secret_key = 'contabilidade_marinho_2026'
 
-clientes = []
-prazos = []
+base_dir = os.path.abspath(os.path.dirname(__file__))
+app.config['SQLALCHEMY_DATABASE_URI'] = f'sqlite:///{os.path.join(base_dir, "instance", "database.db")}'
+app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
+
+db = SQLAlchemy(app)
+
+class Cliente(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    cpf = db.Column(db.String(14), unique=True, nullable=False)
+    contato = db.Column(db.String(20), unique=True, nullable=False)
+
+
+class Prazo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
+    nome_obrigacao = db.Column(db.String(200), nullable=False)
+    observacao = db.Column(db.Text)
+    data_vencimento = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), default='Pendente')
+
+    cliente = db.relationship('Cliente', backref='prazos')
 
 def formatar_cpf(cpf):
     cpf = ''.join(filter(str.isdigit, cpf))
@@ -22,7 +44,12 @@ def validar_cpf(cpf):
     dig2 = (soma * 10 % 11) % 10
     return dig1 == int(cpf[9]) and dig2 == int(cpf[10])
 
+
 app.jinja_env.globals.update(formatar_cpf=formatar_cpf)
+
+with app.app_context():
+    db.create_all()
+    print("✅ Banco de dados criado/atualizado com sucesso!")
 
 @app.route('/', methods=['GET', 'POST'])
 def login():
@@ -40,14 +67,14 @@ def dashboard():
         return redirect('/')
 
     hoje = date.today()
-    prazos_proximos = len([p for p in prazos if p['status'] != 'Concluído' and (p['data_vencimento'] - hoje).days <= 7])
-    prazos_vencidos = len([p for p in prazos if p['status'] != 'Concluído' and (p['data_vencimento'] - hoje).days < 0])
-
-    urgentes = sorted([p for p in prazos if p['status'] == 'Pendente'], key=lambda p: p['data_vencimento'])[:5]
+    prazos_proximos = Prazo.query.filter(Prazo.status != 'Concluído',
+                                         Prazo.data_vencimento <= hoje.replace(day=hoje.day + 7)).count()
+    prazos_vencidos = Prazo.query.filter(Prazo.status != 'Concluído', Prazo.data_vencimento < hoje).count()
+    urgentes = Prazo.query.filter(Prazo.status == 'Pendente').order_by(Prazo.data_vencimento).limit(5).all()
 
     return render_template('dashboard.html',
-                           total_clientes=len(clientes),
-                           total_prazos=len(prazos),
+                           total_clientes=Cliente.query.count(),
+                           total_prazos=Prazo.query.count(),
                            prazos_proximos=prazos_proximos,
                            prazos_vencidos=prazos_vencidos,
                            urgentes=urgentes)
@@ -68,12 +95,14 @@ def cadastrar():
             flash('CPF inválido!', 'error')
             return redirect('/cadastrar')
 
-        for c in clientes:
-            if c['cpf'] == cpf_limpo or c['contato'] == contato:
-                flash('CPF ou telefone já cadastrado!', 'error')
-                return redirect('/cadastrar')
+        if Cliente.query.filter_by(cpf=cpf_limpo).first() or Cliente.query.filter_by(contato=contato).first():
+            flash('CPF ou telefone já cadastrado!', 'error')
+            return redirect('/cadastrar')
 
-        clientes.append({'nome': nome, 'cpf': cpf_limpo, 'contato': contato})
+        novo = Cliente(nome=nome, cpf=cpf_limpo, contato=contato)
+        db.session.add(novo)
+        db.session.commit()
+
         flash('Cliente cadastrado com sucesso!', 'success')
         return redirect('/clientes')
     return render_template('cadastrar.html')
@@ -83,23 +112,13 @@ def cadastrar():
 def listar_clientes():
     if not session.get('logado'):
         return redirect('/')
+    clientes = Cliente.query.all()
     return render_template('index.html', clientes=clientes)
-
-
-@app.route('/excluir/<int:id>')
-def excluir_cliente(id):
-    if not session.get('logado'):
-        return redirect('/')
-    if 0 <= id < len(clientes):
-        clientes.pop(id)
-        flash('Cliente excluído com sucesso!', 'success')
-    return redirect('/clientes')
 
 
 @app.route('/editar/<int:id>', methods=['GET', 'POST'])
 def editar_cliente(id):
-    if not session.get('logado'):
-        return redirect('/')
+    cliente = Cliente.query.get_or_404(id)
     if request.method == 'POST':
         nome = request.form.get('nome', '').strip()
         cpf = request.form.get('cpf', '').strip()
@@ -114,15 +133,28 @@ def editar_cliente(id):
             flash('CPF inválido!', 'error')
             return redirect('/clientes')
 
-        for i, c in enumerate(clientes):
-            if i != id and (c['cpf'] == cpf_limpo or c['contato'] == contato):
-                flash('CPF ou telefone já cadastrado!', 'error')
-                return redirect('/clientes')
+        if Cliente.query.filter(Cliente.id != id, (Cliente.cpf == cpf_limpo) | (Cliente.contato == contato)).first():
+            flash('CPF ou telefone já cadastrado!', 'error')
+            return redirect('/clientes')
 
-        clientes[id] = {'nome': nome, 'cpf': cpf_limpo, 'contato': contato}
+        cliente.nome = nome
+        cliente.cpf = cpf_limpo
+        cliente.contato = contato
+        db.session.commit()
         flash('Cliente atualizado com sucesso!', 'success')
         return redirect('/clientes')
-    return render_template('editar.html', cliente=clientes[id], id=id)
+    return render_template('editar.html', cliente=cliente)
+
+
+@app.route('/excluir/<int:id>')
+def excluir_cliente(id):
+    if not session.get('logado'):
+        return redirect('/')
+    cliente = Cliente.query.get_or_404(id)
+    db.session.delete(cliente)
+    db.session.commit()
+    flash('Cliente excluído com sucesso!', 'success')
+    return redirect('/clientes')
 
 @app.route('/prazos', methods=['GET', 'POST'])
 def prazos_listar():
@@ -142,79 +174,72 @@ def prazos_listar():
             flash('Todos os campos são obrigatórios!', 'error')
             return redirect('/prazos')
 
-        cliente_id = int(cliente_id)
-        data_vencimento = date.fromisoformat(data_venc)
-        cliente_nome = next((c['nome'] for c in clientes if int(c['cpf']) == cliente_id), "Cliente não encontrado")
-
-        prazos.append({
-            'id': len(prazos),
-            'cliente_id': cliente_id,
-            'cliente_nome': cliente_nome,
-            'nome_obrigacao': nome_obrigacao,
-            'observacao': observacao,
-            'data_vencimento': data_vencimento,
-            'status': 'Pendente'
-        })
+        novo_prazo = Prazo(
+            cliente_id=int(cliente_id),
+            nome_obrigacao=nome_obrigacao,
+            observacao=observacao,
+            data_vencimento=date.fromisoformat(data_venc)
+        )
+        db.session.add(novo_prazo)
+        db.session.commit()
         flash('Prazo cadastrado com sucesso!', 'success')
         return redirect('/prazos')
 
-    prazos_filtrados = prazos
+    # Filtragem
+    query = Prazo.query
     if busca:
-        prazos_filtrados = [p for p in prazos_filtrados if
-                            busca in p['cliente_nome'].lower() or busca in p['nome_obrigacao'].lower()]
+        query = query.filter(
+            (Prazo.cliente.has(Cliente.nome.ilike(f'%{busca}%'))) |
+            (Prazo.nome_obrigacao.ilike(f'%{busca}%'))
+        )
     if filtro == 'pendente':
-        prazos_filtrados = [p for p in prazos_filtrados if p['status'] == 'Pendente']
+        query = query.filter(Prazo.status == 'Pendente')
     elif filtro == 'concluido':
-        prazos_filtrados = [p for p in prazos_filtrados if p['status'] == 'Concluído']
+        query = query.filter(Prazo.status == 'Concluído')
 
+    prazos = query.all()
     hoje = date.today()
 
-    return render_template('prazos.html',
-                           prazos=prazos_filtrados,
-                           clientes=clientes,
-                           busca=busca,
-                           filtro=filtro,
+    return render_template('prazos.html', prazos=prazos, clientes=Cliente.query.all(), busca=busca, filtro=filtro,
                            hoje=hoje)
-
 
 @app.route('/editar_prazo/<int:id>', methods=['GET', 'POST'])
 def editar_prazo(id):
-    if not session.get('logado'):
-        return redirect('/')
+    prazo = Prazo.query.get_or_404(id)
     if request.method == 'POST':
-        prazos[id]['nome_obrigacao'] = request.form['nome_obrigacao']
-        prazos[id]['observacao'] = request.form.get('observacao', '')
-        prazos[id]['data_vencimento'] = date.fromisoformat(request.form['data_vencimento'])
+        prazo.nome_obrigacao = request.form['nome_obrigacao']
+        prazo.observacao = request.form.get('observacao', '')
+        prazo.data_vencimento = date.fromisoformat(request.form['data_vencimento'])
+        db.session.commit()
         flash('Prazo atualizado com sucesso!', 'success')
         return redirect('/prazos')
-    return render_template('editar_prazo.html', prazo=prazos[id], id=id)
+    return render_template('editar_prazo.html', prazo=prazo)
 
 
 @app.route('/marcar_concluido/<int:id>')
 def marcar_concluido(id):
     if not session.get('logado'):
         return redirect('/')
-    if 0 <= id < len(prazos):
-        prazos[id]['status'] = 'Concluído'
-        flash('Prazo marcado como concluído!', 'success')
+    prazo = Prazo.query.get_or_404(id)
+    prazo.status = 'Concluído'
+    db.session.commit()
+    flash('Prazo marcado como concluído!', 'success')
     return redirect('/prazos')
-
 
 @app.route('/excluir_prazo/<int:id>')
 def excluir_prazo(id):
     if not session.get('logado'):
         return redirect('/')
-    if 0 <= id < len(prazos):
-        prazos.pop(id)
-        flash('Prazo excluído com sucesso!', 'success')
+    prazo = Prazo.query.get_or_404(id)
+    db.session.delete(prazo)
+    db.session.commit()
+    flash('Prazo excluído com sucesso!', 'success')
     return redirect('/prazos')
-
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect('/')
-
 
 if __name__ == '__main__':
     app.run(debug=True)
