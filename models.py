@@ -27,3 +27,23 @@ class Usuario(db.Model, UserMixin):
 
     def get_id(self):
         return str(self.id)
+
+
+class Cliente(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    nome = db.Column(db.String(100), nullable=False)
+    cpf = db.Column(db.String(14), unique=True, nullable=False)
+    contato = db.Column(db.String(20), unique=True, nullable=False)
+
+
+class Prazo(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
+    cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
+    nome_obrigacao = db.Column(db.String(200), nullable=False)
+    observacao = db.Column(db.Text)
+    data_vencimento = db.Column(db.Date, nullable=False)
+    status = db.Column(db.String(20), default='Pendente')
+
+    usuario = db.relationship('Usuario', backref='prazos_criados')
+    cliente = db.relationship('Cliente', backref='prazos')
