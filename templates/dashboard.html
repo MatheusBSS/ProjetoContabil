@@ -1,26 +1,67 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard - Contabilidade Marinho</title>
+    <title>Dashboard - Sistema Contábil</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Dashboard - Sistema de Contabilidade</h1>
-    <p><strong>Bem-vindo, Admin!</strong></p>
+    <div class="container">
 
-    <h2>Resumo Geral</h2>
-    <p><strong>Total de Clientes:</strong> {{ total_clientes }}</p>
-    <p><strong>Total de Prazos:</strong> {{ total_prazos }}</p>
-    <p><strong>Prazos próximos (7 dias):</strong> <span style="color:red; font-weight:bold;">{{ prazos_proximos }}</span></p>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+            <div>
+                <h1>Dashboard</h1>
+                <p style="color: #64748b; margin-top: 5px;">
+                    Bem-vindo, <strong>{{ usuario.nome }}</strong>
+                </p>
+            </div>
+            <a href="/logout" class="botao" style="background: #ef4444; padding: 10px 20px;">
+                Sair
+            </a>
+        </div>
 
-    <h2>Ações Rápidas</h2>
-    <a href="/cadastrar" class="botao">Cadastrar Novo Cliente</a>
-    <a href="/clientes" class="botao">Ver Lista de Clientes</a>
-    <a href="/prazos" class="botao">Cadastrar / Ver Prazos</a>
+        <div class="resumo">
+            <p><strong>Total de Clientes:</strong> {{ total_clientes }}</p>
+            <p><strong>Total de Prazos:</strong> {{ total_prazos }}</p>
+            <p><strong>Prazos Próximos (7 dias):</strong> {{ prazos_proximos }}</p>
+            <p><strong>Prazos Vencidos:</strong> {{ prazos_vencidos }}</p>
+        </div>
 
-    <br><br>
-    <a href="/logout" style="color:red;">Sair do Sistema</a>
+        <div class="card">
+            <h2>Prazos Urgentes</h2>
+
+            {% if urgentes %}
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Cliente</th>
+                            <th>Obrigação</th>
+                            <th>Data de Vencimento</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for prazo in urgentes %}
+                        <tr>
+                            <td>{{ prazo.cliente.nome }}</td>
+                            <td>{{ prazo.nome_obrigacao }}</td>
+                            <td>{{ prazo.data_vencimento.strftime('%d/%m/%Y') }}</td>
+                            <td>{{ prazo.status }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            {% else %}
+                <p style="color: #64748b;">Nenhum prazo urgente no momento.</p>
+            {% endif %}
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center;">
+            <a href="/clientes" class="botao">Ver Clientes</a>
+            <a href="/prazos" class="botao">Ver Prazos</a>
+            <a href="/cadastrar" class="botao">Cadastrar Cliente</a>
+        </div>
+
+    </div>
 </body>
 </html>

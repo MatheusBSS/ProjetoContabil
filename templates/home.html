@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+    <meta charset="UTF-8">
+    <title>Sistema de Contabilidade</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+    <div class="container">
+        <h1>Sistema de Gestão de Clientes e Prazos</h1>
+        <p style="text-align: center; color: #64748b; margin-bottom: 40px;">
+            Contabilidade Marinho
+        </p>
+
+        <div class="card" style="max-width: 500px; margin: 0 auto; text-align: center;">
+            <h2>Acesse o Sistema</h2>
+            <p style="margin-bottom: 30px; color: #64748b;">
+                Faça login ou crie uma nova conta para começar.
+            </p>
+
+            <div style="display: flex; gap: 15px; justify-content: center; flex-wrap: wrap;">
+                <a href="/login" class="botao">Fazer Login</a>
+                <a href="/registrar" class="botao" style="background: #10b981;">Criar Conta</a>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

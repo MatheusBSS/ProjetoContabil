@@ -1,8 +1,8 @@
 from flask import Flask, render_template, request, redirect, session, flash
 from flask_sqlalchemy import SQLAlchemy
-from flask_login import LoginManager, login_user, logout_user, login_required, current_user
+from flask_login import LoginManager, login_user, logout_user, login_required, current_user, UserMixin
 from werkzeug.security import generate_password_hash, check_password_hash
-from datetime import date
+from datetime import date, datetime, timedelta
 import os
 
 app = Flask(__name__)
@@ -20,12 +20,12 @@ login_manager.login_view = 'login'
 login_manager.login_message = 'Por favor, faça login para acessar esta página.'
 login_manager.login_message_category = 'warning'
 
-class Usuario(db.Model):
+class Usuario(db.Model, UserMixin):
     id = db.Column(db.Integer, primary_key=True)
     nome = db.Column(db.String(100), nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
     senha_hash = db.Column(db.String(256), nullable=False)
-    data_criacao = db.Column(db.DateTime, default=date.today)
+    data_criacao = db.Column(db.DateTime, default=datetime.utcnow)
     ativo = db.Column(db.Boolean, default=True)
 
     def set_senha(self, senha):
@@ -33,12 +33,6 @@ class Usuario(db.Model):
 
     def check_senha(self, senha):
         return check_password_hash(self.senha_hash, senha)
-
-    def is_active(self):
-        return self.ativo
-
-    def get_id(self):
-        return str(self.id)
 
 @login_manager.user_loader
 def load_user(user_id):
@@ -52,11 +46,13 @@ class Cliente(db.Model):
 
 class Prazo(db.Model):
     id = db.Column(db.Integer, primary_key=True)
+    usuario_id = db.Column(db.Integer, db.ForeignKey('usuario.id'), nullable=True)
     cliente_id = db.Column(db.Integer, db.ForeignKey('cliente.id'), nullable=False)
     nome_obrigacao = db.Column(db.String(200), nullable=False)
     observacao = db.Column(db.Text)
     data_vencimento = db.Column(db.Date, nullable=False)
     status = db.Column(db.String(20), default='Pendente')
+    usuario = db.relationship('Usuario', backref='prazos_criados')
     cliente = db.relationship('Cliente', backref='prazos')
 
 def formatar_cpf(cpf):
@@ -78,7 +74,11 @@ app.jinja_env.globals.update(formatar_cpf=formatar_cpf)
 with app.app_context():
     db.create_all()
 
-@app.route('/', methods=['GET', 'POST'])
+@app.route('/')
+def home():
+    return render_template('home.html')
+
+@app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
         email = request.form.get('email', '').strip().lower()
@@ -90,8 +90,28 @@ def login():
             return redirect('/dashboard')
         else:
             flash('Email ou senha incorretos.', 'error')
-            return redirect('/')
+            return redirect('/login')
     return render_template('login.html')
+
+@app.route('/registrar', methods=['GET', 'POST'])
+def registrar():
+    if request.method == 'POST':
+        nome = request.form.get('nome', '').strip()
+        email = request.form.get('email', '').strip().lower()
+        senha = request.form.get('senha', '')
+        if not nome or not email or not senha:
+            flash('Todos os campos são obrigatórios!', 'error')
+            return redirect('/registrar')
+        if Usuario.query.filter_by(email=email).first():
+            flash('Este email já está cadastrado.', 'error')
+            return redirect('/registrar')
+        novo_usuario = Usuario(nome=nome, email=email)
+        novo_usuario.set_senha(senha)
+        db.session.add(novo_usuario)
+        db.session.commit()
+        flash('Cadastro realizado com sucesso! Faça login.', 'success')
+        return redirect('/login')
+    return render_template('registrar.html')
 
 @app.route('/logout')
 @login_required
@@ -104,10 +124,27 @@ def logout():
 @login_required
 def dashboard():
     hoje = date.today()
-    prazos_proximos = Prazo.query.filter(Prazo.status != 'Concluído', Prazo.data_vencimento <= hoje.replace(day=hoje.day + 7)).count()
-    prazos_vencidos = Prazo.query.filter(Prazo.status != 'Concluído', Prazo.data_vencimento < hoje).count()
+    data_limite = hoje + timedelta(days=7)
+
+    prazos_proximos = Prazo.query.filter(
+        Prazo.status != 'Concluído',
+        Prazo.data_vencimento <= data_limite
+    ).count()
+
+    prazos_vencidos = Prazo.query.filter(
+        Prazo.status != 'Concluído',
+        Prazo.data_vencimento < hoje
+    ).count()
+
     urgentes = Prazo.query.filter(Prazo.status == 'Pendente').order_by(Prazo.data_vencimento).limit(5).all()
-    return render_template('dashboard.html', total_clientes=Cliente.query.count(), total_prazos=Prazo.query.count(), prazos_proximos=prazos_proximos, prazos_vencidos=prazos_vencidos, urgentes=urgentes, usuario=current_user)
+
+    return render_template('dashboard.html',
+                           total_clientes=Cliente.query.count(),
+                           total_prazos=Prazo.query.count(),
+                           prazos_proximos=prazos_proximos,
+                           prazos_vencidos=prazos_vencidos,
+                           urgentes=urgentes,
+                           usuario=current_user)
 
 @app.route('/cadastrar', methods=['GET', 'POST'])
 @login_required
@@ -187,12 +224,12 @@ def prazos_listar():
         if not cliente_id or not nome_obrigacao or not data_venc:
             flash('Todos os campos são obrigatórios!', 'error')
             return redirect('/prazos')
-        novo = Prazo(cliente_id=int(cliente_id), nome_obrigacao=nome_obrigacao, observacao=observacao, data_vencimento=date.fromisoformat(data_venc))
+        novo = Prazo(usuario_id=current_user.id, cliente_id=int(cliente_id), nome_obrigacao=nome_obrigacao, observacao=observacao, data_vencimento=date.fromisoformat(data_venc))
         db.session.add(novo)
         db.session.commit()
         flash('Prazo cadastrado com sucesso!', 'success')
         return redirect('/prazos')
-    query = Prazo.query
+    query = Prazo.query.filter_by(usuario_id=current_user.id)
     if busca:
         query = query.filter((Prazo.cliente.has(Cliente.nome.ilike(f'%{busca}%'))) | (Prazo.nome_obrigacao.ilike(f'%{busca}%')))
     if filtro == 'pendente':

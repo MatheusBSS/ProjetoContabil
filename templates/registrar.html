@@ -2,24 +2,29 @@
 <html lang="pt">
 <head>
     <meta charset="UTF-8">
-    <title>Login - Sistema Contábil</title>
+    <title>Registrar - Sistema Contábil</title>
     <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
     <div class="container">
-        <h1 style="margin-bottom: 10px;">Login</h1>
+        <h1 style="margin-bottom: 10px;">Criar Conta</h1>
         <p style="text-align: center; color: #64748b; margin-bottom: 30px;">
-            Acesse sua conta para continuar
+            Preencha os dados abaixo para se cadastrar no sistema.
         </p>
 
-        <form method="POST" action="/login">
+        <form method="POST" action="/registrar">
             {% with messages = get_flashed_messages(with_categories=true) %}
                 {% if messages %}
                     {% for category, message in messages %}
-                        <div class="flash {{ category }}">{{ message }}</div>
+                        {% if category in ['error', 'success'] %}
+                            <div class="flash {{ category }}">{{ message }}</div>
+                        {% endif %}
                     {% endfor %}
                 {% endif %}
             {% endwith %}
+
+            <label>Nome Completo</label>
+            <input type="text" name="nome" required>
 
             <label>Email</label>
             <input type="email" name="email" required>
@@ -27,11 +32,11 @@
             <label>Senha</label>
             <input type="password" name="senha" required>
 
-            <button type="submit">Entrar</button>
+            <button type="submit">Criar Conta</button>
         </form>
 
         <p style="text-align: center; margin-top: 20px;">
-            Não tem conta? <a href="/registrar" style="color: #1e40af; font-weight: 600;">Criar conta</a>
+            Já tem conta? <a href="/login" style="color: #1e40af; font-weight: 600;">Faça login</a>
         </p>
     </div>
 </body>
