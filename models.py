@@ -5,7 +5,6 @@ from datetime import datetime
 
 db = SQLAlchemy()
 
-
 class Usuario(db.Model, UserMixin):
     __tablename__ = 'usuario'
 
